@@ -1,0 +1,16 @@
+Hi,
+
+I'm applying for the Data Engineer role. Pipelines over messy data are my
+daily work: I build ETL in Python and pandas with tests around every
+transformation, because a pipeline nobody can verify is not finished.
+
+My public code shows the working style rather than claims about it - the
+repos are linked in my CV, each with an offline test suite.
+
+One honest note: my cloud experience is thinner than my Python - and I close
+gaps fast when the problem demands it.
+
+I'd welcome the chance to walk you through the projects live.
+
+Best regards,
+Alex Petrov

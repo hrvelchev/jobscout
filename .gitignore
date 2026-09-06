@@ -1,0 +1,21 @@
+# Real configuration never enters the repo - only *.example.* files are tracked.
+config/*
+!config/*.example.*
+!config/notes/
+config/notes/*
+!config/notes/example_note.txt
+
+.env
+data/
+.cache/
+*.log
+
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
