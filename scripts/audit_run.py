@@ -14,7 +14,8 @@ async def main() -> None:
     conn = await asyncpg.connect(dsn=Settings().dsn)
     try:
         rows = await conn.fetch(
-            "SELECT source, external_id, verdict, company, title FROM scan_log ORDER BY verdict, company"
+            "SELECT source, external_id, verdict, company, title"
+            " FROM scan_log ORDER BY verdict, company"
         )
         by_verdict: dict[str, list] = {}
         for r in rows:
