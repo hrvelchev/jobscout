@@ -146,7 +146,7 @@ class PostgresStore:
             """
             SELECT p.* FROM postings p
             JOIN scan_log sl ON sl.source = p.source AND sl.external_id = p.external_id
-            WHERE sl.verdict IN ('over_run_cap', 'over_daily_cap')
+            WHERE sl.verdict IN ('over_run_cap', 'over_daily_cap', 'passed')
               AND p.status = 'new'
               AND p.duplicate_of IS NULL
               AND NOT EXISTS (SELECT 1 FROM scores s WHERE s.posting_id = p.posting_id)

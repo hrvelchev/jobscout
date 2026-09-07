@@ -123,6 +123,8 @@ async def test_scout_same_title_variants_share_one_paid_score(store):
     assert counts["processed"] == 1 and counts["scored_variant"] == 2
     assert len(client.calls) == 2  # one score + one draft; variants are free
     assert len(store.scores) == 3  # yet every posting carries the score
+    # variants must hold a real ScoreResult (the graph state carries a dict)
+    assert all(s.fit_score == 85 for s in store.scores.values())
     verdicts = sorted(v["verdict"] for v in store.scan_log.values())
     assert verdicts == ["drafted", "scored_variant", "scored_variant"]
 

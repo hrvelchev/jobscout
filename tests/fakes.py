@@ -132,7 +132,7 @@ class FakeStore:
             and r["duplicate_of"] is None
             and pid not in self.scores
             and self.scan_log.get((r["source"], r["external_id"]), {}).get("verdict")
-            in ("over_run_cap", "over_daily_cap")
+            in ("over_run_cap", "over_daily_cap", "passed")
         ]
         return rows[:limit]
 
@@ -165,6 +165,10 @@ class FakeStore:
 
     # --- pipeline artifacts -------------------------------------------------
     async def save_score(self, posting_id: int, score: ScoreResult) -> None:
+        if not isinstance(score, ScoreResult):
+            # PostgresStore reads attributes off this object - a permissive
+            # fake here once let a dict through that crashed the live run
+            raise TypeError(f"save_score expects ScoreResult, got {type(score).__name__}")
         self.scores[posting_id] = score
         self.postings[posting_id]["status"] = "scored"
 

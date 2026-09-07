@@ -9,7 +9,7 @@ import structlog
 
 from jobscout.dedupe import ingest
 from jobscout.embeddings import Embedder
-from jobscout.models import PipelineState, RawPosting
+from jobscout.models import PipelineState, RawPosting, ScoreResult
 from jobscout.prefilter import Prefilter
 from jobscout.store import Store
 
@@ -158,6 +158,8 @@ class Scout:
         never got one (budget ran out, parse failed) they fall back to the
         backlog via over_run_cap."""
         score = result.get("score")
+        if score is not None and not isinstance(score, ScoreResult):
+            score = ScoreResult(**score)  # graph state carries it as a dict
         for vid, source, external_id in variant_refs:
             processed_ids.add(vid)
             if score is not None:

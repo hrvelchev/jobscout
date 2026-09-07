@@ -95,9 +95,11 @@ async def test_unscored_new_postings_backlog(pg):
     scored = await pg.insert_posting(make_posting(external_id="b1"), None)
     pending = await pg.insert_posting(make_posting(external_id="b2"), None)
     await pg.insert_posting(make_posting(external_id="b3"), None)  # prefilter-rejected
+    stranded = await pg.insert_posting(make_posting(external_id="b4"), None)  # crash leftover
     await pg.record_scan("devbg", "b1", "over_run_cap")
     await pg.record_scan("devbg", "b2", "over_run_cap")
     await pg.record_scan("devbg", "b3", "excluded")
+    await pg.record_scan("devbg", "b4", "passed")
     await pg.save_score(
         scored,
         ScoreResult(
@@ -112,7 +114,7 @@ async def test_unscored_new_postings_backlog(pg):
         ),
     )
     rows = await pg.unscored_new_postings(10)
-    assert [r["posting_id"] for r in rows] == [pending]
+    assert [r["posting_id"] for r in rows] == [pending, stranded]
 
 
 async def test_bump_counter_atomic_under_concurrency(pg):

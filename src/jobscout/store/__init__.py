@@ -45,8 +45,10 @@ class Store(Protocol):
     async def unscored_new_postings(self, limit: int) -> list[dict[str, Any]]:
         """Oldest-first backlog: status 'new', not a duplicate, no score row,
         and a scan verdict of over_run_cap / over_daily_cap - survivors a
-        previous run had no capacity to score. The verdict guard keeps
-        prefilter-rejected postings out."""
+        previous run had no capacity to score - or a lingering 'passed'
+        (normally overwritten in-run; it survives only when a run crashed
+        mid-processing, so including it makes crashes self-healing). The
+        verdict guard keeps prefilter-rejected postings out."""
         ...
 
     async def eligible_for_digest(self, now: datetime) -> list[dict[str, Any]]:
