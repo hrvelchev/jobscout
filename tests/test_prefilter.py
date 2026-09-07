@@ -16,10 +16,22 @@ def make_prefilter() -> Prefilter:
 
 
 def test_exclude_beats_required_keyword():
-    # contains both an exclude pattern and a required keyword: exclusion wins
-    posting = make_posting(description="PHP developer role, some Python too")
+    # title matches an exclude pattern AND description a required keyword:
+    # exclusion wins
+    posting = make_posting(title="Senior PHP Developer", description="some Python too")
     verdict, detail = make_prefilter().judge(posting)
     assert verdict == VERDICT_EXCLUDED and detail == "php developer"
+
+
+def test_exclude_matches_title_only_not_description_boilerplate():
+    # the Man Group false positive: "internship" in the description's
+    # early-careers boilerplate must not kill a real analyst posting
+    posting = make_posting(
+        title="Risk & Performance Analyst",
+        description="Python analytics role. We also run a summer internship programme.",
+    )
+    verdict, detail = make_prefilter().judge(posting)
+    assert verdict == VERDICT_PASSED and detail == "python"
 
 
 def test_no_keyword_kills():

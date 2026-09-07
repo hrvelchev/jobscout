@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     max_llm_calls_per_day: int = 40
     max_scored_per_run: int = 25
+    devbg_pages: int = 1  # listing pages per category; >1 only for backfill
     draft_threshold: int = 70
     digest_top_n: int = 5
     digest_hour: int = 8

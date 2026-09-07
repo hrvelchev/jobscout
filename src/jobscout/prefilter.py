@@ -22,15 +22,17 @@ class Prefilter:
         self.exclude_patterns = [p.lower() for p in exclude_patterns]
         self.required_keywords = [k.lower() for k in required_keywords]
 
-    def _haystack(self, posting: RawPosting) -> str:
-        return f"{posting.title}\n{posting.description}".lower()
-
     def judge(self, posting: RawPosting) -> tuple[str, str]:
-        """(verdict, detail). Order: excluded beats no_lane_kw beats passed."""
-        haystack = self._haystack(posting)
+        """(verdict, detail). Order: excluded beats no_lane_kw beats passed.
+
+        Exclude patterns match the TITLE only: descriptions carry boilerplate
+        ("we also offer internship programs") that false-positived real
+        postings. Required keywords stay on title + description."""
+        title = posting.title.lower()
         for pattern in self.exclude_patterns:
-            if pattern in haystack:
+            if pattern in title:
                 return VERDICT_EXCLUDED, pattern
+        haystack = f"{posting.title}\n{posting.description}".lower()
         if self.required_keywords:
             for keyword in self.required_keywords:
                 if keyword in haystack:

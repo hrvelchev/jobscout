@@ -70,7 +70,7 @@ async def run() -> None:
         max_per_run=settings.max_scored_per_run,
     )
     sources = [
-        DevBgSource(store, http, devbg_categories),
+        DevBgSource(store, http, devbg_categories, pages=settings.devbg_pages),
         GreenhouseSource(store, http, greenhouse_boards),
     ]
 

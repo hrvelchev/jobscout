@@ -156,6 +156,39 @@ async def test_devbg_fetch_only_new_ids_get_detail_requests(store):
     assert all("/jobads/" not in u for u in http.requested)
 
 
+PAGE2_HTML = """<html><body><div class="listing-wrap">
+<div class="job-list-item" data-job-id="554800">
+<a href="https://dev.bg/company/jobads/initech-data-engineer/" class="overlay-link"></a>
+<h6 class="job-title">Data Engineer II</h6>
+<span class="company-name">Initech EOOD</span>
+<div class="tags-wrap"><span class=" badge "><img src="pin.png"/> София</span></div>
+</div>
+</div></body></html>"""
+
+
+async def test_devbg_pagination_fetches_extra_pages(store):
+    """pages=3: page 2 contributes cards, a 404 on page 3 just ends the walk -
+    no degradation alert, page-1 health checks unaffected."""
+    listing_html = (FIXTURES / "devbg_listing.html").read_text(encoding="utf-8")
+    plain_detail = (FIXTURES / "devbg_detail.html").read_text(encoding="utf-8")
+    custom_detail = (FIXTURES / "devbg_detail_custom.html").read_text(encoding="utf-8")
+    iframe_html = (FIXTURES / "devbg_iframe.html").read_text(encoding="utf-8")
+    http = FakeHttp(
+        {
+            "/company/jobs/python/page/2/": FakeResponse(text=PAGE2_HTML),
+            "/company/jobs/python/page/3/": FakeResponse(status=404),
+            "/company/jobs/python/": FakeResponse(text=listing_html),
+            "?pj=999888": FakeResponse(text=iframe_html),
+            "acme-junior-python-developer/": FakeResponse(text=custom_detail),
+            "initech-data-engineer/": FakeResponse(text=plain_detail),
+        }
+    )
+    source = DevBgSource(store, http, ["python"], pages=3)
+    postings = await source.fetch()
+    assert {p.external_id for p in postings} == {"554746", "554747", "554800"}
+    assert source.degraded == []
+
+
 async def test_devbg_zero_cards_from_real_html_sets_degraded(store):
     http = FakeHttp({"/company/jobs/python/": FakeResponse(text="<html>" + "x" * 20_000)})
     source = DevBgSource(store, http, ["python"])

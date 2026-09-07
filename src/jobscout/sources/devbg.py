@@ -138,28 +138,46 @@ def parse_iframe_description(html: str) -> str:
 
 
 class DevBgSource:
-    def __init__(self, store: Store, http, categories: list[str]):
+    def __init__(self, store: Store, http, categories: list[str], pages: int = 1):
         self.store = store
         self.http = http
         self.categories = categories
+        self.pages = pages  # >1 only for a deliberate backfill; daily = newest 20
         self.degraded: list[str] = []  # categories that parsed to zero cards
 
     async def fetch(self) -> list[RawPosting]:
         postings: list[RawPosting] = []
         self.degraded = []
         for category in self.categories:
-            url = LISTING_URL.format(category=category)
-            try:
-                response = await self.http.get(url)
-                response.raise_for_status()
-            except Exception as exc:  # noqa: BLE001
-                log.warning("devbg_listing_failed", category=category, error=str(exc))
-                self.degraded.append(category)
-                continue
-            cards = parse_listing(response.text)
-            if not cards and len(response.text) > 10_000:
-                log.warning("devbg_zero_cards", category=category, bytes=len(response.text))
-                self.degraded.append(category)
+            cards: list[dict] = []
+            page_failed = False
+            for page in range(1, self.pages + 1):
+                base = LISTING_URL.format(category=category)
+                url = base if page == 1 else f"{base}page/{page}/"
+                if page > 1:
+                    await polite_pause()
+                try:
+                    response = await self.http.get(url)
+                    response.raise_for_status()
+                except Exception as exc:  # noqa: BLE001
+                    if page == 1:
+                        log.warning("devbg_listing_failed", category=category, error=str(exc))
+                        self.degraded.append(category)
+                        page_failed = True
+                    else:
+                        # a category with fewer pages 404s here - that is fine
+                        log.info("devbg_no_more_pages", category=category, page=page)
+                    break
+                page_cards = parse_listing(response.text)
+                if page == 1 and not page_cards and len(response.text) > 10_000:
+                    log.warning("devbg_zero_cards", category=category, bytes=len(response.text))
+                    self.degraded.append(category)
+                    page_failed = True
+                    break
+                if not page_cards:
+                    break
+                cards.extend(page_cards)
+            if page_failed:
                 continue
             new_cards = [
                 c for c in cards if not await self.store.get_state(f"devbg_seen:{c['external_id']}")

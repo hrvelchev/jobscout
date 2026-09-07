@@ -105,6 +105,28 @@ async def test_scout_backlog_drains_over_cap_survivors(store):
     assert verdicts.count("drafted") == 3 and "over_run_cap" not in verdicts
 
 
+async def test_scout_same_title_variants_share_one_paid_score(store):
+    """One company posting one JD in three cities costs ONE paid score -
+    the variants inherit it and stay individually digest-eligible."""
+    postings = [
+        make_posting(
+            external_id=f"v{i}",
+            company="ICT Strypes",
+            title="Junior Python Developer",
+            description=f"python role in city {i}",
+        )
+        for i in range(3)
+    ]
+    client = FakeAnthropicClient([json_response(GOOD_SCORE), text_response(CLEAN_DRAFT)])
+    scout = make_scout(store, client)
+    counts = await scout.run([ListSource(postings)])
+    assert counts["processed"] == 1 and counts["scored_variant"] == 2
+    assert len(client.calls) == 2  # one score + one draft; variants are free
+    assert len(store.scores) == 3  # yet every posting carries the score
+    verdicts = sorted(v["verdict"] for v in store.scan_log.values())
+    assert verdicts == ["drafted", "scored_variant", "scored_variant"]
+
+
 async def test_scout_duplicate_audited_not_processed(store):
     posting = make_posting(external_id="dup1", title="Python Dev", description="python")
     client = FakeAnthropicClient([json_response(GOOD_SCORE), text_response(CLEAN_DRAFT)])
