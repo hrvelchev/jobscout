@@ -117,6 +117,32 @@ async def test_unscored_new_postings_backlog(pg):
     assert [r["posting_id"] for r in rows] == [pending, stranded]
 
 
+async def test_applications_tracker_rows(pg):
+    pid = await pg.insert_posting(make_posting(salary_raw="3000 lv"), None)
+    await pg.save_score(
+        pid,
+        ScoreResult(
+            fit_score=82,
+            stack_match=8,
+            seniority_gap=0,
+            degree_gate="none",
+            lane="ai",
+            red_flags=[],
+            cv_keywords=[],
+            reason="ok",
+        ),
+    )
+    await pg.set_status(pid, "applied", note="test")
+    rows = await pg.applications()
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["fit_score"] == 82 and row["lane"] == "ai"
+    assert row["salary_raw"] == "3000 lv"
+    assert row["applied_at"] is not None
+    await pg.set_status(pid, "closed")
+    assert (await pg.applications())[0]["status"] == "closed"
+
+
 async def test_bump_counter_atomic_under_concurrency(pg):
     results = await asyncio.gather(*(pg.bump_counter("k", 1) for _ in range(50)))
     assert await pg.get_state("k") == "50"

@@ -35,6 +35,8 @@ def build_application(
     *,
     run_scout=None,
     run_digest=None,
+    sync_sheet=None,
+    sheet_url: str = "",
 ) -> Application:
     app = Application.builder().token(token).build()
 
@@ -62,6 +64,8 @@ def build_application(
             if await store.applied_same_company_since(posting["company_norm"], DUPLICATE_WARN_DAYS):
                 warning = "\n! you already applied to this company recently"
             await store.set_status(posting_id, "applied", note="via digest button")
+            if sync_sheet is not None:
+                await sync_sheet()  # errors are swallowed inside; ack still lands
             await _confirm(query, f"marked APPLIED{warning}")
         elif action == "skip":
             await store.set_status(posting_id, "skipped", note="via digest button")
@@ -105,8 +109,24 @@ def build_application(
         if sent == 0:
             await update.message.reply_text("digest: nothing new to send")
 
+    async def cmd_sheet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        if not authorized(update):
+            return
+        if sync_sheet is None or not sheet_url:
+            await update.message.reply_text("sheet tracker is not configured")
+            return
+        result = await sync_sheet()
+        if result is None:
+            await update.message.reply_text("sheet sync failed - check the logs")
+            return
+        await update.message.reply_text(
+            f"sheet synced: {result['appended']} new, {result['updated']} updated\n{sheet_url}",
+            disable_web_page_preview=True,
+        )
+
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(CommandHandler("cost", cmd_cost))
     app.add_handler(CommandHandler("scout", cmd_scout))
     app.add_handler(CommandHandler("digest", cmd_digest))
+    app.add_handler(CommandHandler("sheet", cmd_sheet))
     return app

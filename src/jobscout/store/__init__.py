@@ -58,6 +58,11 @@ class Store(Protocol):
 
     async def applied_same_company_since(self, company_norm: str, days: int) -> bool: ...
 
+    async def applications(self) -> list[dict[str, Any]]:
+        """Applied/closed postings enriched with score, salary, applied_at and
+        the CV variant sent - the sheet tracker's row source. Oldest first."""
+        ...
+
     # --- pipeline artifacts -------------------------------------------------
     async def save_score(self, posting_id: int, score: ScoreResult) -> None: ...
 

@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     scout_minute: int = 45
     timezone: str = "Europe/Sofia"
 
+    gsheet_id: str = ""  # empty = sheet tracker off
+    gsheet_tab: str = "Applications"
+    google_service_account_file: Path = Path("config/google_service_account.json")
+
     log_level: str = "INFO"
     config_dir: Path = Path("config")
 

@@ -141,6 +141,23 @@ class PostgresStore:
         )
         return [dict(r) for r in rows]
 
+    async def applications(self) -> list[dict[str, Any]]:
+        rows = await self.pool.fetch(
+            """
+            SELECT p.posting_id, p.company, p.title, p.url, p.status, p.salary_raw,
+                   s.fit_score, s.lane,
+                   (SELECT max(e.created_at) FROM events e
+                     WHERE e.posting_id = p.posting_id AND e.to_status = 'applied') AS applied_at,
+                   (SELECT d.cv_variant FROM drafts d WHERE d.posting_id = p.posting_id
+                     ORDER BY d.generated_at DESC LIMIT 1) AS cv_variant
+            FROM postings p
+            LEFT JOIN scores s USING (posting_id)
+            WHERE p.status IN ('applied', 'closed')
+            ORDER BY applied_at NULLS LAST, p.posting_id
+            """
+        )
+        return [dict(r) for r in rows]
+
     async def unscored_new_postings(self, limit: int) -> list[dict[str, Any]]:
         rows = await self.pool.fetch(
             """

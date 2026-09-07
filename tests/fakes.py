@@ -163,6 +163,37 @@ class FakeStore:
                 return True
         return False
 
+    async def applications(self) -> list[dict[str, Any]]:
+        out = []
+        for pid, row in sorted(self.postings.items()):
+            if row["status"] not in ("applied", "closed"):
+                continue
+            applied_at = max(
+                (
+                    ev["created_at"]
+                    for ev in self.events
+                    if ev["posting_id"] == pid and ev["to_status"] == "applied"
+                ),
+                default=None,
+            )
+            drafts = [d for d in self.drafts if d["posting_id"] == pid]
+            score = self.scores.get(pid)
+            out.append(
+                {
+                    "posting_id": pid,
+                    "company": row["company"],
+                    "title": row["title"],
+                    "url": row["url"],
+                    "status": row["status"],
+                    "salary_raw": row["salary_raw"],
+                    "fit_score": score.fit_score if score else None,
+                    "lane": score.lane if score else None,
+                    "applied_at": applied_at,
+                    "cv_variant": drafts[-1]["cv_variant"] if drafts else None,
+                }
+            )
+        return out
+
     # --- pipeline artifacts -------------------------------------------------
     async def save_score(self, posting_id: int, score: ScoreResult) -> None:
         if not isinstance(score, ScoreResult):

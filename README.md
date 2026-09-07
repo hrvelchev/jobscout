@@ -89,14 +89,25 @@ python -m jobscout.main
 ```
 
 Telegram commands: `/scout` (run now), `/digest` (send now), `/cost`
-(last 30 days of LLM spend).
+(last 30 days of LLM spend), `/sheet` (sync the applications tracker).
+
+### Applications tracker (optional)
+
+Pressing **Applied** on a digest card mirrors that posting into a Google
+Sheet: date, company, role, link, lane, fit score, salary, CV variant - and
+the closed-posting watch flips its row to `CLOSED by employer`
+automatically. The bot owns columns A-J and rewrites them on every sync;
+columns you add to the right (interview stage, notes, offers) are
+structurally untouchable - the sheet port has no operation that writes
+there. One-way by design: the sheet is a view of the bot's state, never an
+input to it. Setup lives in `.env.example` (service account + `GSHEET_ID`).
 
 ## Tests
 
 ```bash
-pytest -m "not pg"       # 79 offline: stubbed LLM, in-memory store, sockets blocked
+pytest -m "not pg"       # 91 offline: stubbed LLM, in-memory store, sockets blocked
 docker compose up -d db
-pytest -m pg             # 9 integration: real Postgres + pgvector
+pytest -m pg             # 11 integration: real Postgres + pgvector
 ```
 
 The graph tests assert *paid-call counts*, not just outcomes: an empty wallet

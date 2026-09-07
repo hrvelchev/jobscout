@@ -24,6 +24,7 @@ from jobscout.prefilter import Prefilter
 from jobscout.ranking import rank
 from jobscout.scheduler import start_scheduler
 from jobscout.scout import Scout
+from jobscout.sheet import GspreadSheet, sync_applications
 from jobscout.sources.base import make_http_client
 from jobscout.sources.devbg import DevBgSource
 from jobscout.sources.greenhouse import GreenhouseSource
@@ -83,12 +84,36 @@ async def run() -> None:
         async with scout_lock:
             return await scout.run(sources)
 
+    sheet = None
+    if settings.gsheet_id and settings.google_service_account_file.exists():
+        sheet = GspreadSheet(
+            settings.google_service_account_file, settings.gsheet_id, settings.gsheet_tab
+        )
+        log.info("sheet_tracker_enabled", tab=settings.gsheet_tab)
+    elif settings.gsheet_id:
+        log.warning("sheet_tracker_missing_key", file=str(settings.google_service_account_file))
+
+    async def sync_sheet() -> dict[str, int] | None:
+        if sheet is None:
+            return None
+        try:
+            return await sync_applications(store, sheet)
+        except Exception as exc:  # noqa: BLE001 - the tracker must never break the bot
+            log.warning("sheet_sync_failed", error=str(exc))
+            return None
+
     app = build_application(
         settings.telegram_bot_token,
         settings.telegram_owner_id,
         store,
         run_scout=run_scout,
         run_digest=lambda: run_digest(),
+        sync_sheet=sync_sheet,
+        sheet_url=(
+            f"https://docs.google.com/spreadsheets/d/{settings.gsheet_id}"
+            if settings.gsheet_id
+            else ""
+        ),
     )
 
     async def notify(text: str) -> None:
@@ -107,7 +132,7 @@ async def run() -> None:
         extra = []
         if now.weekday() == 0:  # Monday
             extra.append("weekly manual check: jobs.bg (not scraped - blocks bots)")
-        return await send_digest(
+        sent = await send_digest(
             app.bot,
             settings.telegram_owner_id,
             store,
@@ -115,9 +140,12 @@ async def run() -> None:
             dream_companies=dream_companies,
             extra_lines=extra,
         )
+        await sync_sheet()
+        return sent
 
     async def run_watch() -> None:
         await check_applied_postings(store, http, notify)
+        await sync_sheet()  # closed detections land in the tracker promptly
 
     start_scheduler(
         settings,
