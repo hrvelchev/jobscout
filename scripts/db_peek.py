@@ -16,9 +16,7 @@ async def main() -> None:
         ):
             print(f"  {r['status']}: {r['count']}")
         print("scores:", await conn.fetchval("SELECT count(*) FROM scores"))
-        raw = await conn.fetchval(
-            "SELECT value FROM app_state WHERE key = 'digest_delivered_ids'"
-        )
+        raw = await conn.fetchval("SELECT value FROM app_state WHERE key = 'digest_delivered_ids'")
         print("delivered_ids:", raw)
     finally:
         await conn.close()

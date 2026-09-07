@@ -20,9 +20,7 @@ async def main() -> None:
             "UPDATE postings SET status = 'scored' WHERE status = 'digested'"
         )
         print(f"re-armed for digest: {result}")
-        cleared = await conn.execute(
-            "DELETE FROM app_state WHERE key = 'digest_delivered_ids'"
-        )
+        cleared = await conn.execute("DELETE FROM app_state WHERE key = 'digest_delivered_ids'")
         print(f"delivered-ids list cleared: {cleared}")
     finally:
         await conn.close()
