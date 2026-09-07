@@ -43,16 +43,13 @@ async def score_node(
     )
     payload = llm.parse_json(text) if text is not None else None
 
-    if payload is None and text is not None:
-        # one corrective retry, budget-honest: it needs its own reservation
-        if await budget.reserve():
-            system, user = prompts.render_score(
-                state["profile"], state["posting_text"], retry=True
-            )
-            text = await llm.complete(
-                client, store, system=system, user=user, purpose="score_retry", max_tokens=700
-            )
-            payload = llm.parse_json(text) if text is not None else None
+    # one corrective retry on bad JSON - budget-honest: it reserves its own call
+    if payload is None and text is not None and await budget.reserve():
+        system, user = prompts.render_score(state["profile"], state["posting_text"], retry=True)
+        text = await llm.complete(
+            client, store, system=system, user=user, purpose="score_retry", max_tokens=700
+        )
+        payload = llm.parse_json(text) if text is not None else None
 
     if payload is None:
         log.warning("score_failed", posting_id=state.get("posting_id"))

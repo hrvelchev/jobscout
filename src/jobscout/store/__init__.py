@@ -55,8 +55,14 @@ class Store(Protocol):
 
     # --- audit / state / budget --------------------------------------------
     async def record_scan(
-        self, source: str, external_id: str, verdict: str, detail: str = "",
-        url: str = "", company: str = "", title: str = "",
+        self,
+        source: str,
+        external_id: str,
+        verdict: str,
+        detail: str = "",
+        url: str = "",
+        company: str = "",
+        title: str = "",
     ) -> None:
         """Upsert-ignore: the first verdict for (source, external_id) wins the
         insert; use update_scan_verdict to overwrite deliberately."""
@@ -67,8 +73,11 @@ class Store(Protocol):
     ) -> None: ...
 
     async def add_event(
-        self, event_type: str, posting_id: int | None = None,
-        from_status: str | None = None, to_status: str | None = None,
+        self,
+        event_type: str,
+        posting_id: int | None = None,
+        from_status: str | None = None,
+        to_status: str | None = None,
         note: str | None = None,
     ) -> None: ...
 
@@ -82,8 +91,12 @@ class Store(Protocol):
         ...
 
     async def log_usage(
-        self, model: str, input_tokens: int, output_tokens: int,
-        cost_usd: float, purpose: str,
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+        purpose: str,
     ) -> None: ...
 
     async def usage_since(self, since: datetime) -> tuple[int, float]:

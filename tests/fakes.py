@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import math
 import random
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jobscout.models import RawPosting, ScoreResult
@@ -79,7 +79,7 @@ class FakeStore:
             "salary_min": posting.salary_min,
             "salary_max": posting.salary_max,
             "posted_at": posting.posted_at,
-            "fetched_at": datetime.now(),
+            "fetched_at": datetime.now(UTC),
             "embedding": embedding,
             "duplicate_of": None,
             "status": "new",
@@ -138,7 +138,7 @@ class FakeStore:
         return out
 
     async def applied_same_company_since(self, company_norm: str, days: int) -> bool:
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = datetime.now(UTC) - timedelta(days=days)
         for ev in self.events:
             if ev["event_type"] != "status_change" or ev["to_status"] != "applied":
                 continue
@@ -156,8 +156,12 @@ class FakeStore:
 
     async def save_draft(self, posting_id: int, cv_variant: str, note_text: str) -> None:
         self.drafts.append(
-            {"posting_id": posting_id, "cv_variant": cv_variant,
-             "note_text": note_text, "generated_at": datetime.now()}
+            {
+                "posting_id": posting_id,
+                "cv_variant": cv_variant,
+                "note_text": note_text,
+                "generated_at": datetime.now(UTC),
+            }
         )
 
     async def latest_draft(self, posting_id: int) -> dict[str, Any] | None:
@@ -166,14 +170,23 @@ class FakeStore:
 
     # --- audit / state / budget --------------------------------------------
     async def record_scan(
-        self, source: str, external_id: str, verdict: str, detail: str = "",
-        url: str = "", company: str = "", title: str = "",
+        self,
+        source: str,
+        external_id: str,
+        verdict: str,
+        detail: str = "",
+        url: str = "",
+        company: str = "",
+        title: str = "",
     ) -> None:
         key = (source, external_id)
         if key not in self.scan_log:
             self.scan_log[key] = {
-                "verdict": verdict, "detail": detail,
-                "url": url, "company": company, "title": title,
+                "verdict": verdict,
+                "detail": detail,
+                "url": url,
+                "company": company,
+                "title": title,
             }
 
     async def update_scan_verdict(
@@ -184,14 +197,22 @@ class FakeStore:
         entry["detail"] = detail
 
     async def add_event(
-        self, event_type: str, posting_id: int | None = None,
-        from_status: str | None = None, to_status: str | None = None,
+        self,
+        event_type: str,
+        posting_id: int | None = None,
+        from_status: str | None = None,
+        to_status: str | None = None,
         note: str | None = None,
     ) -> None:
         self.events.append(
-            {"event_type": event_type, "posting_id": posting_id,
-             "from_status": from_status, "to_status": to_status,
-             "note": note, "created_at": datetime.now()}
+            {
+                "event_type": event_type,
+                "posting_id": posting_id,
+                "from_status": from_status,
+                "to_status": to_status,
+                "note": note,
+                "created_at": datetime.now(UTC),
+            }
         )
 
     async def get_state(self, key: str) -> str | None:
@@ -206,12 +227,22 @@ class FakeStore:
         return value
 
     async def log_usage(
-        self, model: str, input_tokens: int, output_tokens: int,
-        cost_usd: float, purpose: str,
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+        purpose: str,
     ) -> None:
         self.usage.append(
-            {"model": model, "input_tokens": input_tokens, "output_tokens": output_tokens,
-             "cost_usd": cost_usd, "purpose": purpose, "created_at": datetime.now()}
+            {
+                "model": model,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cost_usd": cost_usd,
+                "purpose": purpose,
+                "created_at": datetime.now(UTC),
+            }
         )
 
     async def usage_since(self, since: datetime) -> tuple[int, float]:

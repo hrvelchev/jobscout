@@ -10,6 +10,7 @@ HTML; it is unescaped and stripped to text for scoring.
 
 from __future__ import annotations
 
+import contextlib
 import html as html_mod
 import re
 from datetime import datetime
@@ -42,10 +43,8 @@ def parse_board(payload: dict, token: str) -> list[RawPosting]:
         posted_at = None
         raw_ts = job.get("updated_at") or job.get("first_published")
         if raw_ts:
-            try:
+            with contextlib.suppress(ValueError):
                 posted_at = datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
-            except ValueError:
-                pass
         postings.append(
             RawPosting(
                 source="greenhouse",

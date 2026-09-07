@@ -1,12 +1,12 @@
 from fakes import FakeEmbedder
+from test_models import make_posting
 
 from jobscout.dedupe import VERDICT_DUP_EXACT, VERDICT_DUP_SEMANTIC, ingest
-from test_models import make_posting
 
 # hand-built unit vectors with exact, known cosines
 V_A = [1.0, 0.0, 0.0, 0.0]
-V_A_CLOSE = [0.96, 0.28, 0.0, 0.0]   # cosine(V_A, V_A_CLOSE) = 0.96 >= 0.90
-V_FAR = [0.0, 1.0, 0.0, 0.0]         # cosine = 0.0
+V_A_CLOSE = [0.96, 0.28, 0.0, 0.0]  # cosine(V_A, V_A_CLOSE) = 0.96 >= 0.90
+V_FAR = [0.0, 1.0, 0.0, 0.0]  # cosine = 0.0
 
 
 def embedder_for(postings_vectors: dict) -> FakeEmbedder:
@@ -23,11 +23,16 @@ async def test_exact_duplicate_skipped_and_audited(store):
 
 
 async def test_semantic_duplicate_same_company_marked(store):
-    devbg = make_posting(source="devbg", external_id="d1", company="Acme Ltd",
-                         title="ML Engineer", description="a")
-    greenhouse = make_posting(source="greenhouse", external_id="g1",
-                              company="Acme Bulgaria EOOD", title="ML Engineer (Sofia)",
-                              description="b")
+    devbg = make_posting(
+        source="devbg", external_id="d1", company="Acme Ltd", title="ML Engineer", description="a"
+    )
+    greenhouse = make_posting(
+        source="greenhouse",
+        external_id="g1",
+        company="Acme Bulgaria EOOD",
+        title="ML Engineer (Sofia)",
+        description="b",
+    )
     embedder = embedder_for({devbg.embed_text(): V_A, greenhouse.embed_text(): V_A_CLOSE})
     fresh1, _ = await ingest([devbg], store, embedder)
     fresh2, dups2 = await ingest([greenhouse], store, embedder)
@@ -59,12 +64,13 @@ async def test_below_threshold_same_company_is_kept(store):
 
 async def test_duplicates_never_reach_scoring(store):
     """A semantically-duplicated posting must be invisible to the digest."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     a = make_posting(external_id="a1", company="Acme", title="ML Engineer")
-    b = make_posting(source="greenhouse", external_id="b1", company="Acme EOOD",
-                     title="ML Engineer role")
+    b = make_posting(
+        source="greenhouse", external_id="b1", company="Acme EOOD", title="ML Engineer role"
+    )
     embedder = embedder_for({a.embed_text(): V_A, b.embed_text(): V_A_CLOSE})
     await ingest([a, b], store, embedder)
-    eligible = await store.eligible_for_digest(datetime.now())
+    eligible = await store.eligible_for_digest(datetime.now(UTC))
     assert all(r["external_id"] != "b1" for r in eligible)

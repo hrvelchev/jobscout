@@ -3,8 +3,12 @@ from jobscout.models import RawPosting, ScoreResult, normalize_company
 
 def make_posting(**overrides) -> RawPosting:
     defaults = dict(
-        source="devbg", external_id="x1", url="https://example.com/j/1",
-        company="Acme Ltd", title="Data Engineer", description="Build pipelines." * 100,
+        source="devbg",
+        external_id="x1",
+        url="https://example.com/j/1",
+        company="Acme Ltd",
+        title="Data Engineer",
+        description="Build pipelines." * 100,
     )
     defaults.update(overrides)
     return RawPosting(**defaults)
@@ -32,25 +36,38 @@ def test_embed_text_truncates_description():
 
 
 def test_score_from_payload_happy_path():
-    score = ScoreResult.from_payload({
-        "fit_score": 87,
-        "subscores": {"stack_match": 8, "seniority_gap": 1, "degree_gate": "none", "lane": "ai"},
-        "red_flags": ["on-site only"],
-        "cv_keywords": ["Python", "RAG"],
-        "reason": "strong match",
-    })
+    score = ScoreResult.from_payload(
+        {
+            "fit_score": 87,
+            "subscores": {
+                "stack_match": 8,
+                "seniority_gap": 1,
+                "degree_gate": "none",
+                "lane": "ai",
+            },
+            "red_flags": ["on-site only"],
+            "cv_keywords": ["Python", "RAG"],
+            "reason": "strong match",
+        }
+    )
     assert score.fit_score == 87 and score.lane == "ai" and score.degree_gate == "none"
     assert score.cv_keywords == ["Python", "RAG"]
 
 
 def test_score_from_payload_clamps_and_coerces():
-    score = ScoreResult.from_payload({
-        "fit_score": 250,
-        "subscores": {"stack_match": 99, "seniority_gap": -7,
-                      "degree_gate": "MAYBE", "lane": "blockchain"},
-        "red_flags": [f"flag{i}" for i in range(20)],
-        "cv_keywords": [f"kw{i}" for i in range(20)],
-    })
+    score = ScoreResult.from_payload(
+        {
+            "fit_score": 250,
+            "subscores": {
+                "stack_match": 99,
+                "seniority_gap": -7,
+                "degree_gate": "MAYBE",
+                "lane": "blockchain",
+            },
+            "red_flags": [f"flag{i}" for i in range(20)],
+            "cv_keywords": [f"kw{i}" for i in range(20)],
+        }
+    )
     assert score.fit_score == 100
     assert score.stack_match == 10
     assert score.seniority_gap == -2

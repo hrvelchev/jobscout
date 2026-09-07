@@ -31,8 +31,12 @@ async def pg():
 
 def make_posting(**overrides) -> RawPosting:
     defaults = dict(
-        source="devbg", external_id="x1", url="https://example.com/1",
-        company="Acme Ltd", title="Data Engineer", description="pipelines",
+        source="devbg",
+        external_id="x1",
+        url="https://example.com/1",
+        company="Acme Ltd",
+        title="Data Engineer",
+        description="pipelines",
     )
     defaults.update(overrides)
     return RawPosting(**defaults)
@@ -92,10 +96,19 @@ async def test_applications_view_and_same_company_guard(pg):
 async def test_eligible_for_digest_honors_snooze(pg):
     now = datetime.now(UTC)
     pid = await pg.insert_posting(make_posting(), None)
-    await pg.save_score(pid, ScoreResult(
-        fit_score=80, stack_match=8, seniority_gap=0, degree_gate="none",
-        lane="ai", red_flags=[], cv_keywords=["Python"], reason="ok",
-    ))
+    await pg.save_score(
+        pid,
+        ScoreResult(
+            fit_score=80,
+            stack_match=8,
+            seniority_gap=0,
+            degree_gate="none",
+            lane="ai",
+            red_flags=[],
+            cv_keywords=["Python"],
+            reason="ok",
+        ),
+    )
     assert len(await pg.eligible_for_digest(now)) == 1
     await pg.set_snooze(pid, now + timedelta(days=3))
     assert await pg.eligible_for_digest(now) == []
@@ -120,9 +133,18 @@ async def test_usage_log_and_since(pg):
     assert n == 1 and abs(total - 0.002) < 1e-9
     # jsonb columns round-trip through save_score too
     pid = await pg.insert_posting(make_posting(external_id="j1"), None)
-    await pg.save_score(pid, ScoreResult(
-        fit_score=70, stack_match=5, seniority_gap=1, degree_gate="soft",
-        lane="data", red_flags=["x"], cv_keywords=["SQL"], reason="r",
-    ))
+    await pg.save_score(
+        pid,
+        ScoreResult(
+            fit_score=70,
+            stack_match=5,
+            seniority_gap=1,
+            degree_gate="soft",
+            lane="data",
+            red_flags=["x"],
+            cv_keywords=["SQL"],
+            reason="r",
+        ),
+    )
     raw = await pg.pool.fetchrow("SELECT red_flags FROM scores WHERE posting_id = $1", pid)
     assert json.loads(raw["red_flags"]) == ["x"]

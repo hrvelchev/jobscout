@@ -38,9 +38,7 @@ class Prefilter:
             return VERDICT_NO_KEYWORD, ""
         return VERDICT_PASSED, ""
 
-    def filter(
-        self, postings: list[RawPosting]
-    ) -> tuple[list[RawPosting], list[dict]]:
+    def filter(self, postings: list[RawPosting]) -> tuple[list[RawPosting], list[dict]]:
         """(survivors, scan_rows) - one scan row per input, survivors included,
         shaped for Store.record_scan."""
         survivors: list[RawPosting] = []

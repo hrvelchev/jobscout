@@ -55,6 +55,7 @@ def no_sleep(monkeypatch):
 
 # --- dev.bg parsing ---------------------------------------------------------
 
+
 def test_parse_listing_extracts_cards():
     cards = parse_listing((FIXTURES / "devbg_listing.html").read_text(encoding="utf-8"))
     assert len(cards) == 2  # malformed third card skipped, not crashed
@@ -92,13 +93,16 @@ def test_parse_detail_description_and_date():
 
 # --- dev.bg source flow -----------------------------------------------------
 
+
 async def test_devbg_fetch_only_new_ids_get_detail_requests(store):
     listing_html = (FIXTURES / "devbg_listing.html").read_text(encoding="utf-8")
     detail_html = (FIXTURES / "devbg_detail.html").read_text(encoding="utf-8")
-    http = FakeHttp({
-        "/company/jobs/python/": FakeResponse(text=listing_html),
-        "?pj=": FakeResponse(text=detail_html),
-    })
+    http = FakeHttp(
+        {
+            "/company/jobs/python/": FakeResponse(text=listing_html),
+            "?pj=": FakeResponse(text=detail_html),
+        }
+    )
     source = DevBgSource(store, http, ["python"])
     postings = await source.fetch()
     assert {p.external_id for p in postings} == {"554746", "554747"}
@@ -127,6 +131,7 @@ async def test_devbg_listing_http_error_sets_degraded(store):
 
 # --- greenhouse -------------------------------------------------------------
 
+
 def test_parse_board_unescapes_content_and_skips_malformed():
     payload = json.loads((FIXTURES / "greenhouse_jobs.json").read_text(encoding="utf-8"))
     postings = parse_board(payload, "examplecompany")
@@ -147,10 +152,12 @@ def test_strip_html_flattens_escaped_markup():
 
 async def test_greenhouse_fetch_continues_past_broken_board(store):
     good = json.loads((FIXTURES / "greenhouse_jobs.json").read_text(encoding="utf-8"))
-    http = FakeHttp({
-        "boards-api.greenhouse.io/v1/boards/broken/": FakeResponse(status=500),
-        "boards-api.greenhouse.io/v1/boards/examplecompany/": FakeResponse(payload=good),
-    })
+    http = FakeHttp(
+        {
+            "boards-api.greenhouse.io/v1/boards/broken/": FakeResponse(status=500),
+            "boards-api.greenhouse.io/v1/boards/examplecompany/": FakeResponse(payload=good),
+        }
+    )
     source = GreenhouseSource(store, http, ["broken", "examplecompany"])
     postings = await source.fetch()
     assert len(postings) == 2  # broken board logged and skipped, good one parsed

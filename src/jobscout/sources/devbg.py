@@ -40,9 +40,7 @@ log = structlog.get_logger()
 
 LISTING_URL = "https://dev.bg/company/jobs/{category}/"
 
-_SALARY_RE = re.compile(
-    r"(\d[\d\s.,]*)\s*-\s*(\d[\d\s.,]*)\s*(лв|BGN|EUR|евро)", re.IGNORECASE
-)
+_SALARY_RE = re.compile(r"(\d[\d\s.,]*)\s*-\s*(\d[\d\s.,]*)\s*(лв|BGN|EUR|евро)", re.IGNORECASE)
 _TIME_RE = re.compile(r'<time datetime="(\d{4}-\d{2}-\d{2})"')
 
 
@@ -136,8 +134,7 @@ class DevBgSource:
                 self.degraded.append(category)
                 continue
             new_cards = [
-                c for c in cards
-                if not await self.store.get_state(f"devbg_seen:{c['external_id']}")
+                c for c in cards if not await self.store.get_state(f"devbg_seen:{c['external_id']}")
             ]
             log.info("devbg_listing", category=category, cards=len(cards), new=len(new_cards))
             for card in new_cards:

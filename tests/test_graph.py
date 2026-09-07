@@ -12,20 +12,24 @@ from jobscout.budget import Budget
 from jobscout.pipeline.graph import build_graph
 from jobscout.pipeline.sanitize import PLACEHOLDER
 
-GOOD_SCORE = json.dumps({
-    "fit_score": 85,
-    "subscores": {"stack_match": 8, "seniority_gap": 0, "degree_gate": "none", "lane": "ai"},
-    "red_flags": [],
-    "cv_keywords": ["Python", "RAG"],
-    "reason": "fits",
-})
-LOW_SCORE = json.dumps({
-    "fit_score": 40,
-    "subscores": {"stack_match": 3, "seniority_gap": 2, "degree_gate": "hard", "lane": "quant"},
-    "red_flags": ["degree required"],
-    "cv_keywords": [],
-    "reason": "poor fit",
-})
+GOOD_SCORE = json.dumps(
+    {
+        "fit_score": 85,
+        "subscores": {"stack_match": 8, "seniority_gap": 0, "degree_gate": "none", "lane": "ai"},
+        "red_flags": [],
+        "cv_keywords": ["Python", "RAG"],
+        "reason": "fits",
+    }
+)
+LOW_SCORE = json.dumps(
+    {
+        "fit_score": 40,
+        "subscores": {"stack_match": 3, "seniority_gap": 2, "degree_gate": "hard", "lane": "quant"},
+        "red_flags": ["degree required"],
+        "cv_keywords": [],
+        "reason": "poor fit",
+    }
+)
 CLEAN_DRAFT = "Hi,\n\nI fit this role - Python and RAG are my daily work.\n\nBest, Alex"
 DIRTY_DRAFT = "Hi — check https://example.com — thanks"
 
@@ -99,11 +103,13 @@ async def test_bad_json_retries_once_then_fails(store):
 
 async def test_dirty_draft_retries_with_feedback_then_succeeds(store):
     pid = await seed_posting(store)
-    client = FakeAnthropicClient([
-        json_response(GOOD_SCORE),
-        text_response(DIRTY_DRAFT),
-        text_response(CLEAN_DRAFT),
-    ])
+    client = FakeAnthropicClient(
+        [
+            json_response(GOOD_SCORE),
+            text_response(DIRTY_DRAFT),
+            text_response(CLEAN_DRAFT),
+        ]
+    )
     state = await run_graph(store, client, posting_id=pid)
     assert state["outcome"] == "drafted"
     assert len(client.calls) == 3

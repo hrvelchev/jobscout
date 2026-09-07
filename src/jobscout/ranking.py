@@ -54,9 +54,12 @@ def rank(
     top_n: int,
 ) -> list[dict[str, Any]]:
     decorated = [
-        {**row, "rank_value": rank_value(
-            row, lane_weights=lane_weights, dream_companies=dream_companies, now=now
-        )}
+        {
+            **row,
+            "rank_value": rank_value(
+                row, lane_weights=lane_weights, dream_companies=dream_companies, now=now
+            ),
+        }
         for row in rows
     ]
     decorated.sort(key=lambda r: r["rank_value"], reverse=True)

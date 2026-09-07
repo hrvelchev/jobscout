@@ -59,11 +59,21 @@ class PostgresStore:
             ON CONFLICT (source, external_id) DO NOTHING
             RETURNING posting_id
             """,
-            posting.source, posting.external_id, posting.url, posting.company,
-            posting.company_norm, posting.title, posting.description,
-            posting.location, posting.remote, posting.salary_raw,
-            posting.salary_min, posting.salary_max, posting.salary_currency,
-            posting.posted_at, embedding,
+            posting.source,
+            posting.external_id,
+            posting.url,
+            posting.company,
+            posting.company_norm,
+            posting.title,
+            posting.description,
+            posting.location,
+            posting.remote,
+            posting.salary_raw,
+            posting.salary_min,
+            posting.salary_max,
+            posting.salary_currency,
+            posting.posted_at,
+            embedding,
         )
         return row["posting_id"] if row else None
 
@@ -83,20 +93,21 @@ class PostgresStore:
             ORDER BY embedding <=> $1
             LIMIT 1
             """,
-            embedding, company_norm, threshold,
+            embedding,
+            company_norm,
+            threshold,
         )
         return row["posting_id"] if row else None
 
     async def mark_duplicate(self, posting_id: int, duplicate_of: int) -> None:
         await self.pool.execute(
             "UPDATE postings SET duplicate_of = $2 WHERE posting_id = $1",
-            posting_id, duplicate_of,
+            posting_id,
+            duplicate_of,
         )
 
     async def get_posting(self, posting_id: int) -> dict[str, Any] | None:
-        row = await self.pool.fetchrow(
-            "SELECT * FROM postings WHERE posting_id = $1", posting_id
-        )
+        row = await self.pool.fetchrow("SELECT * FROM postings WHERE posting_id = $1", posting_id)
         return dict(row) if row else None
 
     async def set_status(self, posting_id: int, status: str, note: str | None = None) -> None:
@@ -110,7 +121,10 @@ class PostgresStore:
             await conn.execute(
                 "INSERT INTO events (posting_id, event_type, from_status, to_status, note) "
                 "VALUES ($1, 'status_change', $2, $3, $4)",
-                posting_id, old, status, note,
+                posting_id,
+                old,
+                status,
+                note,
             )
 
     async def set_snooze(self, posting_id: int, until: datetime) -> None:
@@ -166,7 +180,8 @@ class PostgresStore:
               AND p.company_norm = $1
             LIMIT 1
             """,
-            company_norm, days,
+            company_norm,
+            days,
         )
         return row is not None
 
@@ -189,9 +204,14 @@ class PostgresStore:
                     cv_keywords = EXCLUDED.cv_keywords,
                     reason = EXCLUDED.reason, scored_at = now()
                 """,
-                posting_id, score.fit_score, score.lane, score.stack_match,
-                score.seniority_gap, score.degree_gate,
-                json.dumps(score.red_flags), json.dumps(score.cv_keywords),
+                posting_id,
+                score.fit_score,
+                score.lane,
+                score.stack_match,
+                score.seniority_gap,
+                score.degree_gate,
+                json.dumps(score.red_flags),
+                json.dumps(score.cv_keywords),
                 score.reason,
             )
             await conn.execute(
@@ -201,7 +221,9 @@ class PostgresStore:
     async def save_draft(self, posting_id: int, cv_variant: str, note_text: str) -> None:
         await self.pool.execute(
             "INSERT INTO drafts (posting_id, cv_variant, note_text) VALUES ($1,$2,$3)",
-            posting_id, cv_variant, note_text,
+            posting_id,
+            cv_variant,
+            note_text,
         )
 
     async def latest_draft(self, posting_id: int) -> dict[str, Any] | None:
@@ -214,8 +236,14 @@ class PostgresStore:
 
     # --- audit / state / budget --------------------------------------------
     async def record_scan(
-        self, source: str, external_id: str, verdict: str, detail: str = "",
-        url: str = "", company: str = "", title: str = "",
+        self,
+        source: str,
+        external_id: str,
+        verdict: str,
+        detail: str = "",
+        url: str = "",
+        company: str = "",
+        title: str = "",
     ) -> None:
         await self.pool.execute(
             """
@@ -223,7 +251,13 @@ class PostgresStore:
             VALUES ($1,$2,$3,$4,$5,$6,$7)
             ON CONFLICT (source, external_id) DO NOTHING
             """,
-            source, external_id, verdict, detail, url, company, title,
+            source,
+            external_id,
+            verdict,
+            detail,
+            url,
+            company,
+            title,
         )
 
     async def update_scan_verdict(
@@ -236,18 +270,28 @@ class PostgresStore:
             ON CONFLICT (source, external_id) DO UPDATE
                 SET verdict = EXCLUDED.verdict, detail = EXCLUDED.detail
             """,
-            source, external_id, verdict, detail,
+            source,
+            external_id,
+            verdict,
+            detail,
         )
 
     async def add_event(
-        self, event_type: str, posting_id: int | None = None,
-        from_status: str | None = None, to_status: str | None = None,
+        self,
+        event_type: str,
+        posting_id: int | None = None,
+        from_status: str | None = None,
+        to_status: str | None = None,
         note: str | None = None,
     ) -> None:
         await self.pool.execute(
             "INSERT INTO events (posting_id, event_type, from_status, to_status, note) "
             "VALUES ($1,$2,$3,$4,$5)",
-            posting_id, event_type, from_status, to_status, note,
+            posting_id,
+            event_type,
+            from_status,
+            to_status,
+            note,
         )
 
     async def get_state(self, key: str) -> str | None:
@@ -257,7 +301,8 @@ class PostgresStore:
         await self.pool.execute(
             "INSERT INTO app_state (key, value) VALUES ($1,$2) "
             "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
-            key, value,
+            key,
+            value,
         )
 
     async def bump_counter(self, key: str, delta: int = 1) -> int:
@@ -269,17 +314,26 @@ class PostgresStore:
                 SET value = ((app_state.value)::int + $2::int)::text, updated_at = now()
             RETURNING (value)::int
             """,
-            key, delta,
+            key,
+            delta,
         )
 
     async def log_usage(
-        self, model: str, input_tokens: int, output_tokens: int,
-        cost_usd: float, purpose: str,
+        self,
+        model: str,
+        input_tokens: int,
+        output_tokens: int,
+        cost_usd: float,
+        purpose: str,
     ) -> None:
         await self.pool.execute(
             "INSERT INTO usage_log (model, input_tokens, output_tokens, cost_usd, purpose) "
             "VALUES ($1,$2,$3,$4,$5)",
-            model, input_tokens, output_tokens, cost_usd, purpose,
+            model,
+            input_tokens,
+            output_tokens,
+            cost_usd,
+            purpose,
         )
 
     async def usage_since(self, since: datetime) -> tuple[int, float]:

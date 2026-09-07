@@ -9,8 +9,9 @@ WEIGHTS = {"ai": 5, "data": 3, "other": 0}
 
 def make_row(fit=70, lane="other", posted_days_ago=10.0, salary_min=None, company="acme"):
     return {
-        "score": ScoreResult(fit_score=fit, stack_match=5, seniority_gap=0,
-                             degree_gate="none", lane=lane),
+        "score": ScoreResult(
+            fit_score=fit, stack_match=5, seniority_gap=0, degree_gate="none", lane=lane
+        ),
         "posted_at": NOW - timedelta(days=posted_days_ago),
         "salary_min": salary_min,
         "company_norm": company,
@@ -42,10 +43,10 @@ def test_salary_and_lane_and_dream_bonuses():
 
 def test_rank_orders_and_caps():
     rows = [
-        make_row(fit=60, posted_days_ago=1),            # 68
-        make_row(fit=90, posted_days_ago=30),           # 80
+        make_row(fit=60, posted_days_ago=1),  # 68
+        make_row(fit=90, posted_days_ago=30),  # 80
         make_row(fit=75, lane="ai", posted_days_ago=10),  # 80 -> tie, stable enough
-        make_row(fit=50, posted_days_ago=10),           # 50
+        make_row(fit=50, posted_days_ago=10),  # 50
     ]
     top = rank(rows, lane_weights=WEIGHTS, dream_companies=[], now=NOW, top_n=2)
     assert len(top) == 2

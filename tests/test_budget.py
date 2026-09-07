@@ -20,8 +20,8 @@ async def test_reserve_refunds_on_overshoot(store):
 
 async def test_wallet_is_shared_not_per_purpose(store):
     budget = Budget(store, max_per_day=2)
-    assert await budget.reserve() is True   # a "score" call
-    assert await budget.reserve() is True   # a "draft" call
+    assert await budget.reserve() is True  # a "score" call
+    assert await budget.reserve() is True  # a "draft" call
     assert await budget.reserve() is False  # third call of any kind
 
 

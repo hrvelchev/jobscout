@@ -10,8 +10,24 @@ from typing import TypedDict
 # Legal/geographic suffixes that make the same employer look different across
 # boards ("Acme Ltd" on dev.bg vs "Acme Bulgaria EOOD" on Greenhouse).
 _COMPANY_NOISE = {
-    "ltd", "ead", "ood", "eood", "ad", "jsc", "plc", "gmbh", "inc", "llc",
-    "co", "sa", "srl", "bv", "bulgaria", "sofia", "group", "holdings",
+    "ltd",
+    "ead",
+    "ood",
+    "eood",
+    "ad",
+    "jsc",
+    "plc",
+    "gmbh",
+    "inc",
+    "llc",
+    "co",
+    "sa",
+    "srl",
+    "bv",
+    "bulgaria",
+    "sofia",
+    "group",
+    "holdings",
 }
 
 
@@ -88,7 +104,7 @@ class PipelineState(TypedDict, total=False):
     profile: str
     notes_examples: str
     lane_cv_map: dict[str, str]
-    score: dict | None          # ScoreResult as dict, JSON-serializable
+    score: dict | None  # ScoreResult as dict, JSON-serializable
     cv_variant: str | None
     draft: str | None
     draft_attempts: int

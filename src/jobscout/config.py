@@ -56,6 +56,7 @@ def load_settings() -> Settings:
 
 # --- markdown config parsing -------------------------------------------------
 
+
 def parse_tagged_items(text: str) -> list[tuple[str, str]]:
     """[(section_tag, item), ...] - see module docstring for the format."""
     lines = text.splitlines()
@@ -146,5 +147,7 @@ def load_notes_examples(config_dir: Path, limit: int = 5) -> str:
         return ""
     blocks = []
     for path in sorted(notes_dir.glob("*.txt"))[:limit]:
-        blocks.append(f"--- example note ({path.stem}) ---\n{path.read_text(encoding='utf-8').strip()}")
+        blocks.append(
+            f"--- example note ({path.stem}) ---\n{path.read_text(encoding='utf-8').strip()}"
+        )
     return "\n\n".join(blocks)

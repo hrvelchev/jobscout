@@ -1,10 +1,11 @@
+from test_models import make_posting
+
 from jobscout.prefilter import (
     VERDICT_EXCLUDED,
     VERDICT_NO_KEYWORD,
     VERDICT_PASSED,
     Prefilter,
 )
-from test_models import make_posting
 
 
 def make_prefilter() -> Prefilter:

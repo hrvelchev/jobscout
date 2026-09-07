@@ -47,10 +47,7 @@ async def complete(
     usage = getattr(response, "usage", None)
     if usage is not None:
         cost = (
-            usage.input_tokens * COST_PER_MTOK_IN
-            + usage.output_tokens * COST_PER_MTOK_OUT
+            usage.input_tokens * COST_PER_MTOK_IN + usage.output_tokens * COST_PER_MTOK_OUT
         ) / 1_000_000
         await store.log_usage(MODEL, usage.input_tokens, usage.output_tokens, cost, purpose)
-    return "".join(
-        block.text for block in response.content if getattr(block, "type", "") == "text"
-    )
+    return "".join(block.text for block in response.content if getattr(block, "type", "") == "text")
