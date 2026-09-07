@@ -63,12 +63,16 @@ def format_card(row: dict[str, Any], draft: dict[str, Any] | None, *, watched: b
         f"*{escape_md(row['title'])}* \\- {escape_md(row.get('location') or 'location n/a')}",
         escape_md(f"{salary} - posted {age} - {row['source']}")
         + (" \\- *watched company*" if watched else ""),
-        f"Why: {escape_md(score.reason or '-')}",
-        f"Flags: {escape_md(flags)}",
-        f"Keywords: {escape_md(keywords)}",
+        "",
+        f"*Why:* {escape_md(score.reason or '-')}",
+        "",
+        f"*Flags:* {escape_md(flags)}",
+        "",
+        f"*Keywords:* {escape_md(keywords)}",
+        "",
     ]
     if draft:
-        lines.append(f"CV: {escape_md(draft['cv_variant'])}")
+        lines.append(f"*CV:* {escape_md(draft['cv_variant'])}")
         lines.append("```\n" + draft["note_text"] + "\n```")
     lines.append(escape_md(row["url"]))
     return "\n".join(lines)
@@ -78,6 +82,7 @@ def plain_card(row: dict[str, Any], draft: dict[str, Any] | None) -> str:
     score = row["score"]
     parts = [
         f"#{row['posting_id']} - {score.fit_score}/100 - {row['company']} - {row['title']}",
+        "",
         f"Why: {score.reason}",
     ]
     if draft:
