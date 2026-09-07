@@ -1,0 +1,128 @@
+"""Integration tests against real Postgres + pgvector (marker: pg).
+
+Run: docker compose up -d db && pytest -m pg
+The same Store contract the unit suite exercises via FakeStore.
+"""
+
+import asyncio
+import json
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from jobscout.config import Settings
+from jobscout.models import RawPosting, ScoreResult
+from jobscout.store.postgres import PostgresStore
+
+pytestmark = pytest.mark.pg
+
+TABLES = ("events", "drafts", "scores", "scan_log", "usage_log", "app_state", "postings")
+
+
+@pytest.fixture
+async def pg():
+    store = PostgresStore(Settings().dsn)
+    await store.connect()
+    for table in TABLES:
+        await store.pool.execute(f"TRUNCATE {table} RESTART IDENTITY CASCADE")
+    yield store
+    await store.close()
+
+
+def make_posting(**overrides) -> RawPosting:
+    defaults = dict(
+        source="devbg", external_id="x1", url="https://example.com/1",
+        company="Acme Ltd", title="Data Engineer", description="pipelines",
+    )
+    defaults.update(overrides)
+    return RawPosting(**defaults)
+
+
+VEC_A = [1.0] + [0.0] * 383
+VEC_A_CLOSE = [0.96, 0.28] + [0.0] * 382  # cosine 0.96
+VEC_FAR = [0.0, 1.0] + [0.0] * 382
+
+
+async def test_schema_init_is_idempotent(pg):
+    # connect() ran the schema once; running the whole file again must be a no-op
+    from importlib import resources
+
+    schema = resources.files("jobscout.store").joinpath("schema.sql").read_text("utf-8")
+    await pg.pool.execute(schema)
+
+
+async def test_unique_conflict_returns_none(pg):
+    assert await pg.insert_posting(make_posting(), None) == 1
+    assert await pg.insert_posting(make_posting(), None) is None
+
+
+async def test_vector_roundtrip_and_semantic_query(pg):
+    await pg.insert_posting(make_posting(external_id="a"), VEC_A)
+    # same company, cosine 0.96 -> duplicate found
+    assert await pg.find_semantic_dup(VEC_A_CLOSE, "acme") == 1
+    # different company, same vector -> no duplicate
+    assert await pg.find_semantic_dup(VEC_A_CLOSE, "initech") is None
+    # same company, orthogonal vector -> no duplicate
+    assert await pg.find_semantic_dup(VEC_FAR, "acme") is None
+
+
+async def test_bump_counter_atomic_under_concurrency(pg):
+    results = await asyncio.gather(*(pg.bump_counter("k", 1) for _ in range(50)))
+    assert await pg.get_state("k") == "50"
+    assert sorted(results) == list(range(1, 51))  # every increment observed exactly once
+
+
+async def test_set_status_writes_event(pg):
+    pid = await pg.insert_posting(make_posting(), None)
+    await pg.set_status(pid, "applied", note="via test")
+    row = await pg.pool.fetchrow("SELECT * FROM events WHERE posting_id = $1", pid)
+    assert row["from_status"] == "new" and row["to_status"] == "applied"
+
+
+async def test_applications_view_and_same_company_guard(pg):
+    pid = await pg.insert_posting(make_posting(company="Acme Ltd"), None)
+    await pg.save_draft(pid, "cv_ai.pdf", "note")
+    await pg.set_status(pid, "applied")
+    rows = await pg.pool.fetch("SELECT * FROM applications")
+    assert len(rows) == 1 and rows[0]["cv_variant"] == "cv_ai.pdf"
+    assert await pg.applied_same_company_since("acme", days=90) is True
+    assert await pg.applied_same_company_since("initech", days=90) is False
+
+
+async def test_eligible_for_digest_honors_snooze(pg):
+    now = datetime.now(UTC)
+    pid = await pg.insert_posting(make_posting(), None)
+    await pg.save_score(pid, ScoreResult(
+        fit_score=80, stack_match=8, seniority_gap=0, degree_gate="none",
+        lane="ai", red_flags=[], cv_keywords=["Python"], reason="ok",
+    ))
+    assert len(await pg.eligible_for_digest(now)) == 1
+    await pg.set_snooze(pid, now + timedelta(days=3))
+    assert await pg.eligible_for_digest(now) == []
+    assert len(await pg.eligible_for_digest(now + timedelta(days=4))) == 1
+    row = (await pg.eligible_for_digest(now + timedelta(days=4)))[0]
+    assert row["score"].cv_keywords == ["Python"]
+
+
+async def test_scan_log_upsert_semantics(pg):
+    await pg.record_scan("devbg", "e1", "passed", url="u", company="c", title="t")
+    await pg.record_scan("devbg", "e1", "excluded")  # first verdict wins inserts
+    row = await pg.pool.fetchrow("SELECT * FROM scan_log")
+    assert row["verdict"] == "passed"
+    await pg.update_scan_verdict("devbg", "e1", "scored", "ok")
+    row = await pg.pool.fetchrow("SELECT * FROM scan_log")
+    assert row["verdict"] == "scored"
+
+
+async def test_usage_log_and_since(pg):
+    await pg.log_usage("claude-haiku-4-5", 1000, 200, 0.002, "score")
+    n, total = await pg.usage_since(datetime.now(UTC) - timedelta(hours=1))
+    assert n == 1 and abs(total - 0.002) < 1e-9
+    # jsonb columns round-trip through save_score too
+    pid = await pg.insert_posting(make_posting(external_id="j1"), None)
+    await pg.save_score(pid, ScoreResult(
+        fit_score=70, stack_match=5, seniority_gap=1, degree_gate="soft",
+        lane="data", red_flags=["x"], cv_keywords=["SQL"], reason="r",
+    ))
+    raw = await pg.pool.fetchrow("SELECT red_flags FROM scores WHERE posting_id = $1", pid)
+    assert json.loads(raw["red_flags"]) == ["x"]
