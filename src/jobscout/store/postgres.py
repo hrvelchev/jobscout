@@ -78,7 +78,7 @@ class PostgresStore:
         return row["posting_id"] if row else None
 
     async def find_semantic_dup(
-        self, embedding: list[float], company_norm: str, threshold: float = 0.90
+        self, embedding: list[float], company_norm: str, source: str, threshold: float = 0.90
     ) -> int | None:
         row = await self.pool.fetchrow(
             """
@@ -86,6 +86,7 @@ class PostgresStore:
             FROM postings
             WHERE embedding IS NOT NULL
               AND duplicate_of IS NULL
+              AND source <> $4
               AND (company_norm = $2
                    OR position(company_norm IN $2) > 0
                    OR position($2 IN company_norm) > 0)
@@ -96,6 +97,7 @@ class PostgresStore:
             embedding,
             company_norm,
             threshold,
+            source,
         )
         return row["posting_id"] if row else None
 
@@ -136,6 +138,22 @@ class PostgresStore:
     async def postings_with_status(self, *statuses: str) -> list[dict[str, Any]]:
         rows = await self.pool.fetch(
             "SELECT * FROM postings WHERE status = ANY($1::text[])", list(statuses)
+        )
+        return [dict(r) for r in rows]
+
+    async def unscored_new_postings(self, limit: int) -> list[dict[str, Any]]:
+        rows = await self.pool.fetch(
+            """
+            SELECT p.* FROM postings p
+            JOIN scan_log sl ON sl.source = p.source AND sl.external_id = p.external_id
+            WHERE sl.verdict IN ('over_run_cap', 'over_daily_cap')
+              AND p.status = 'new'
+              AND p.duplicate_of IS NULL
+              AND NOT EXISTS (SELECT 1 FROM scores s WHERE s.posting_id = p.posting_id)
+            ORDER BY p.posting_id
+            LIMIT $1
+            """,
+            limit,
         )
         return [dict(r) for r in rows]
 

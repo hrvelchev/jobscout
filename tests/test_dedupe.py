@@ -42,6 +42,23 @@ async def test_semantic_duplicate_same_company_marked(store):
     assert dup_row["duplicate_of"] == fresh1[0][0]
 
 
+async def test_same_source_similar_roles_are_kept(store):
+    """One company's board listing many similar titles (e.g. the same role in
+    two offices) must NOT collapse - semantic dedupe is cross-source only."""
+    a = make_posting(
+        source="greenhouse", external_id="mg:1", company="Man Group", title="Quant Researcher"
+    )
+    b = make_posting(
+        source="greenhouse",
+        external_id="mg:2",
+        company="Man Group",
+        title="Quant Researcher (Sofia)",
+    )
+    embedder = embedder_for({a.embed_text(): V_A, b.embed_text(): V_A_CLOSE})
+    fresh, dups = await ingest([a, b], store, embedder)
+    assert len(fresh) == 2 and dups == []
+
+
 async def test_similar_text_different_company_is_kept(store):
     a = make_posting(external_id="a1", company="Acme Ltd", title="Python Dev")
     b = make_posting(external_id="b1", company="Initech Ltd", title="Python Dev")

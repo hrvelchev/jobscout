@@ -9,7 +9,13 @@ import pytest
 
 from jobscout.sources import devbg as devbg_mod
 from jobscout.sources import greenhouse as gh_mod
-from jobscout.sources.devbg import DevBgSource, parse_detail, parse_listing, parse_salary
+from jobscout.sources.devbg import (
+    DevBgSource,
+    parse_detail,
+    parse_iframe_description,
+    parse_listing,
+    parse_salary,
+)
 from jobscout.sources.greenhouse import GreenhouseSource, parse_board, strip_html
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -65,6 +71,7 @@ def test_parse_listing_extracts_cards():
     assert first["title"] == "Junior Python Developer"
     assert first["url"].endswith("acme-junior-python-developer/")
     assert first["remote"] is True
+    assert first["location"] == "София"
 
 
 def test_parse_listing_salary_badge():
@@ -73,6 +80,13 @@ def test_parse_listing_salary_badge():
     assert (second["salary_min"], second["salary_max"]) == (3000, 5500)
     assert second["salary_currency"] == "BGN"
     assert second["remote"] is None
+
+
+def test_parse_listing_hybrid_badge_location_not_glued():
+    # the hybrid badge nests a "Hybrid" suffix + hidden tooltip text inside the
+    # location badge; deep extraction used to glue "ПловдивHybridКомбиниран..."
+    cards = parse_listing((FIXTURES / "devbg_listing.html").read_text(encoding="utf-8"))
+    assert cards[1]["location"] == "Пловдив (hybrid)"
 
 
 def test_parse_salary_variants():
@@ -86,9 +100,26 @@ def test_parse_listing_alien_html_returns_empty():
 
 
 def test_parse_detail_description_and_date():
-    text, posted_at = parse_detail((FIXTURES / "devbg_detail.html").read_text(encoding="utf-8"))
+    text, posted_at, iframe_src = parse_detail(
+        (FIXTURES / "devbg_detail.html").read_text(encoding="utf-8")
+    )
     assert "Junior Python Developer" in text and "pandas" in text
     assert posted_at is not None and posted_at.date().isoformat() == "2026-09-04"
+    assert iframe_src is None
+
+
+def test_parse_detail_custom_design_exposes_iframe_src():
+    text, posted_at, iframe_src = parse_detail(
+        (FIXTURES / "devbg_detail_custom.html").read_text(encoding="utf-8")
+    )
+    assert iframe_src == "https://dev.bg/company/jobads/acme-junior-python-developer/?pj=999888"
+    assert posted_at is not None and posted_at.date().isoformat() == "2026-09-04"
+
+
+def test_parse_iframe_description():
+    text = parse_iframe_description((FIXTURES / "devbg_iframe.html").read_text(encoding="utf-8"))
+    assert "pandas" in text and "Airflow" in text
+    assert "overflow" not in text  # style/script content excluded
 
 
 # --- dev.bg source flow -----------------------------------------------------
@@ -96,23 +127,33 @@ def test_parse_detail_description_and_date():
 
 async def test_devbg_fetch_only_new_ids_get_detail_requests(store):
     listing_html = (FIXTURES / "devbg_listing.html").read_text(encoding="utf-8")
-    detail_html = (FIXTURES / "devbg_detail.html").read_text(encoding="utf-8")
+    plain_detail = (FIXTURES / "devbg_detail.html").read_text(encoding="utf-8")
+    custom_detail = (FIXTURES / "devbg_detail_custom.html").read_text(encoding="utf-8")
+    iframe_html = (FIXTURES / "devbg_iframe.html").read_text(encoding="utf-8")
     http = FakeHttp(
         {
             "/company/jobs/python/": FakeResponse(text=listing_html),
-            "?pj=": FakeResponse(text=detail_html),
+            # order matters: the iframe url contains the detail-url substring
+            "?pj=999888": FakeResponse(text=iframe_html),
+            "acme-junior-python-developer/": FakeResponse(text=custom_detail),
+            "initech-data-engineer/": FakeResponse(text=plain_detail),
         }
     )
     source = DevBgSource(store, http, ["python"])
     postings = await source.fetch()
-    assert {p.external_id for p in postings} == {"554746", "554747"}
-    assert postings[0].description  # detail was fetched and parsed
+    by_id = {p.external_id: p for p in postings}
+    assert set(by_id) == {"554746", "554747"}
+    # custom-design ad: description came from the iframe, date from the page
+    assert "Airflow" in by_id["554746"].description
+    assert by_id["554746"].posted_at.date().isoformat() == "2026-09-04"
+    # plain ad: description straight from the detail page body
+    assert "pandas" in by_id["554747"].description
 
     # second run: both ids seen -> zero detail requests
     http.requested.clear()
     postings2 = await source.fetch()
     assert postings2 == []
-    assert all("?pj=" not in u for u in http.requested)
+    assert all("/jobads/" not in u for u in http.requested)
 
 
 async def test_devbg_zero_cards_from_real_html_sets_degraded(store):

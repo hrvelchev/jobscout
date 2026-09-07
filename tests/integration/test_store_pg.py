@@ -8,6 +8,7 @@ import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 
+import asyncpg
 import pytest
 
 from jobscout.config import Settings
@@ -19,9 +20,27 @@ pytestmark = pytest.mark.pg
 TABLES = ("events", "drafts", "scores", "scan_log", "usage_log", "app_state", "postings")
 
 
+async def _test_dsn() -> str:
+    """Never run destructive tests against the live database: a local .env
+    points POSTGRES_DB at it, so force a separate *_test db (creating it on
+    first use). CI already provisions 'jobscout_test' directly."""
+    settings = Settings()
+    if not settings.postgres_db.endswith("_test"):
+        admin = await asyncpg.connect(dsn=settings.dsn)
+        test_db = f"{settings.postgres_db}_test"
+        try:
+            exists = await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", test_db)
+            if not exists:
+                await admin.execute(f'CREATE DATABASE "{test_db}"')
+        finally:
+            await admin.close()
+        settings.postgres_db = test_db
+    return settings.dsn
+
+
 @pytest.fixture
 async def pg():
-    store = PostgresStore(Settings().dsn)
+    store = PostgresStore(await _test_dsn())
     await store.connect()
     for table in TABLES:
         await store.pool.execute(f"TRUNCATE {table} RESTART IDENTITY CASCADE")
@@ -61,13 +80,39 @@ async def test_unique_conflict_returns_none(pg):
 
 
 async def test_vector_roundtrip_and_semantic_query(pg):
-    await pg.insert_posting(make_posting(external_id="a"), VEC_A)
-    # same company, cosine 0.96 -> duplicate found
-    assert await pg.find_semantic_dup(VEC_A_CLOSE, "acme") == 1
+    await pg.insert_posting(make_posting(external_id="a"), VEC_A)  # source=devbg
+    # other source, same company, cosine 0.96 -> duplicate found
+    assert await pg.find_semantic_dup(VEC_A_CLOSE, "acme", "greenhouse") == 1
+    # same source never dups: a board's own similar roles are distinct jobs
+    assert await pg.find_semantic_dup(VEC_A_CLOSE, "acme", "devbg") is None
     # different company, same vector -> no duplicate
-    assert await pg.find_semantic_dup(VEC_A_CLOSE, "initech") is None
+    assert await pg.find_semantic_dup(VEC_A_CLOSE, "initech", "greenhouse") is None
     # same company, orthogonal vector -> no duplicate
-    assert await pg.find_semantic_dup(VEC_FAR, "acme") is None
+    assert await pg.find_semantic_dup(VEC_FAR, "acme", "greenhouse") is None
+
+
+async def test_unscored_new_postings_backlog(pg):
+    scored = await pg.insert_posting(make_posting(external_id="b1"), None)
+    pending = await pg.insert_posting(make_posting(external_id="b2"), None)
+    await pg.insert_posting(make_posting(external_id="b3"), None)  # prefilter-rejected
+    await pg.record_scan("devbg", "b1", "over_run_cap")
+    await pg.record_scan("devbg", "b2", "over_run_cap")
+    await pg.record_scan("devbg", "b3", "excluded")
+    await pg.save_score(
+        scored,
+        ScoreResult(
+            fit_score=50,
+            stack_match=5,
+            seniority_gap=0,
+            degree_gate="none",
+            lane="ai",
+            red_flags=[],
+            cv_keywords=[],
+            reason="ok",
+        ),
+    )
+    rows = await pg.unscored_new_postings(10)
+    assert [r["posting_id"] for r in rows] == [pending]
 
 
 async def test_bump_counter_atomic_under_concurrency(pg):

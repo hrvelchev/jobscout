@@ -85,6 +85,26 @@ async def test_scout_run_cap_rewrites_verdicts(store):
     assert len(over_cap) == 2
 
 
+async def test_scout_backlog_drains_over_cap_survivors(store):
+    """Survivors beyond the run cap are exact dups on the next fetch, so the
+    backlog drain is their only route to scoring - one per run here."""
+    postings = [
+        make_posting(external_id=f"p{i}", title=f"Python Dev {i}", description="python")
+        for i in range(3)
+    ]
+    client = FakeAnthropicClient([json_response(GOOD_SCORE), text_response(CLEAN_DRAFT)] * 3)
+    scout = make_scout(store, client, max_per_run=1)
+    counts1 = await scout.run([ListSource(postings)])
+    assert counts1["processed"] == 1 and counts1["backlog_processed"] == 0
+    counts2 = await scout.run([ListSource(postings)])  # all exact dups now
+    assert counts2["processed"] == 0 and counts2["backlog_processed"] == 1
+    counts3 = await scout.run([ListSource([])])
+    assert counts3["backlog_processed"] == 1
+    assert len(store.scores) == 3  # every survivor eventually scored
+    verdicts = [v["verdict"] for v in store.scan_log.values()]
+    assert verdicts.count("drafted") == 3 and "over_run_cap" not in verdicts
+
+
 async def test_scout_duplicate_audited_not_processed(store):
     posting = make_posting(external_id="dup1", title="Python Dev", description="python")
     client = FakeAnthropicClient([json_response(GOOD_SCORE), text_response(CLEAN_DRAFT)])

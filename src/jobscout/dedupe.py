@@ -1,9 +1,12 @@
 """Ingestion with two dedupe layers.
 
 Exact: UNIQUE(source, external_id) - the same posting refetched tomorrow.
-Semantic: cosine >= 0.90 AND matching normalized company - the same job
-cross-posted on two boards. The company guard stops staffing agencies'
-similar-but-different postings from collapsing into one.
+Semantic: cosine >= 0.90 AND matching normalized company AND a DIFFERENT
+source - the same job cross-posted on two boards. The company guard stops
+staffing agencies' similar-but-different postings from collapsing into one;
+the cross-source guard stops a company's own board (many legitimately
+similar roles, e.g. one employer's Sofia/London variants of the same title)
+from collapsing into a single posting.
 
 Duplicates are stored and audited, never scored or digested.
 """
@@ -41,7 +44,7 @@ async def ingest(
         # semantic check FIRST, against the store as it was before this item -
         # then insert, so two identical postings in one batch also pair up
         dup_of = await store.find_semantic_dup(
-            embedding, posting.company_norm, threshold=SEMANTIC_THRESHOLD
+            embedding, posting.company_norm, posting.source, threshold=SEMANTIC_THRESHOLD
         )
         posting_id = await store.insert_posting(posting, embedding)
         if posting_id is None:

@@ -21,10 +21,13 @@ class Store(Protocol):
         ...
 
     async def find_semantic_dup(
-        self, embedding: list[float], company_norm: str, threshold: float = 0.90
+        self, embedding: list[float], company_norm: str, source: str, threshold: float = 0.90
     ) -> int | None:
-        """posting_id of a non-duplicate posting with cosine >= threshold AND a
-        matching company_norm (equal or substring either way), else None."""
+        """posting_id of a non-duplicate posting from a DIFFERENT source with
+        cosine >= threshold AND a matching company_norm (equal or substring
+        either way), else None. Same-source postings are never semantic dups:
+        a company's own board legitimately lists many similar roles, and
+        same-board refetches are caught by the exact (source, external_id) key."""
         ...
 
     async def mark_duplicate(self, posting_id: int, duplicate_of: int) -> None: ...
@@ -38,6 +41,13 @@ class Store(Protocol):
     async def set_snooze(self, posting_id: int, until: datetime) -> None: ...
 
     async def postings_with_status(self, *statuses: str) -> list[dict[str, Any]]: ...
+
+    async def unscored_new_postings(self, limit: int) -> list[dict[str, Any]]:
+        """Oldest-first backlog: status 'new', not a duplicate, no score row,
+        and a scan verdict of over_run_cap / over_daily_cap - survivors a
+        previous run had no capacity to score. The verdict guard keeps
+        prefilter-rejected postings out."""
+        ...
 
     async def eligible_for_digest(self, now: datetime) -> list[dict[str, Any]]:
         """Scored, non-duplicate, not yet digested/applied/skipped/closed and

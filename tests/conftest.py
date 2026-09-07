@@ -12,6 +12,7 @@ addopts); only localhost is allowed, for the pg-marked integration tests.
 
 from __future__ import annotations
 
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -79,6 +80,15 @@ def embedder() -> FakeEmbedder:
 
 
 @pytest.fixture
-def config_dir() -> Path:
-    """The repo's committed example config - tests prove the examples work."""
-    return Path(__file__).parent.parent / "config"
+def config_dir(tmp_path) -> Path:
+    """The repo's committed example config, copied WITHOUT the gitignored real
+    files - the examples must prove themselves even on a machine where the
+    real config sits alongside them (real files win inside _read_config)."""
+    src = Path(__file__).parent.parent / "config"
+    for path in src.glob("*.example.*"):
+        shutil.copy(path, tmp_path / path.name)
+    notes = tmp_path / "notes"
+    notes.mkdir()
+    for path in (src / "notes").glob("example*.txt"):
+        shutil.copy(path, notes / path.name)
+    return tmp_path

@@ -61,39 +61,89 @@ class Scout:
             )
 
         outcomes: dict[str, int] = {}
+        processed_ids: set[int] = set()
         for posting in capped:
-            state: PipelineState = {
-                "posting_id": id_by_external[posting.external_id],
-                "posting_text": self._render_posting(posting),
-                "profile": self.profile,
-                "notes_examples": self.notes_examples,
-                "lane_cv_map": self.lane_cv_map,
-                "draft_attempts": 0,
-            }
-            result = await self.graph.ainvoke(state)
-            outcome = result.get("outcome", "unknown")
+            pid = id_by_external[posting.external_id]
+            processed_ids.add(pid)
+            outcome = await self._process(pid, self._render_posting(posting))
             outcomes[outcome] = outcomes.get(outcome, 0) + 1
             await self.store.update_scan_verdict(posting.source, posting.external_id, outcome)
+
+        # survivors a previous run capped out are still status 'new' with no
+        # score - refetching them tomorrow hits the exact-dup key, so this
+        # backlog drain is their only path to scoring
+        backlog_done = 0
+        room = self.max_per_run - len(capped)
+        if room > 0:
+            for row in await self.store.unscored_new_postings(room + len(processed_ids)):
+                if row["posting_id"] in processed_ids or backlog_done >= room:
+                    continue
+                outcome = await self._process(row["posting_id"], self._render_row(row))
+                outcomes[outcome] = outcomes.get(outcome, 0) + 1
+                await self.store.update_scan_verdict(row["source"], row["external_id"], outcome)
+                backlog_done += 1
 
         counts = {
             "fetched": len(fetched),
             "duplicates": len(dup_rows),
             "survivors": len(survivors),
             "processed": len(capped),
+            "backlog_processed": backlog_done,
             "degraded_sources": len(degraded),
             **outcomes,
         }
         log.info("scout_run_done", **counts)
         return counts
 
+    async def _process(self, posting_id: int, posting_text: str) -> str:
+        state: PipelineState = {
+            "posting_id": posting_id,
+            "posting_text": posting_text,
+            "profile": self.profile,
+            "notes_examples": self.notes_examples,
+            "lane_cv_map": self.lane_cv_map,
+            "draft_attempts": 0,
+        }
+        result = await self.graph.ainvoke(state)
+        return result.get("outcome", "unknown")
+
+    @staticmethod
+    def _render_text(
+        *,
+        title: str,
+        company: str,
+        location: str | None,
+        remote: bool | None,
+        salary_raw: str | None,
+        description: str,
+    ) -> str:
+        return (
+            f"Title: {title}\n"
+            f"Company: {company}\n"
+            f"Location: {location or 'n/a'}"
+            f"{' (remote)' if remote else ''}\n"
+            f"Salary: {salary_raw or 'not posted'}\n\n"
+            f"{description}"
+        )
+
     @staticmethod
     def _render_posting(posting: RawPosting) -> str:
-        salary = posting.salary_raw or "not posted"
-        return (
-            f"Title: {posting.title}\n"
-            f"Company: {posting.company}\n"
-            f"Location: {posting.location or 'n/a'}"
-            f"{' (remote)' if posting.remote else ''}\n"
-            f"Salary: {salary}\n\n"
-            f"{posting.description}"
+        return Scout._render_text(
+            title=posting.title,
+            company=posting.company,
+            location=posting.location,
+            remote=posting.remote,
+            salary_raw=posting.salary_raw,
+            description=posting.description,
+        )
+
+    @staticmethod
+    def _render_row(row: dict) -> str:
+        return Scout._render_text(
+            title=row["title"],
+            company=row["company"],
+            location=row["location"],
+            remote=row["remote"],
+            salary_raw=row["salary_raw"],
+            description=row["description"],
         )

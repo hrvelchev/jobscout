@@ -88,11 +88,13 @@ class FakeStore:
         return pid
 
     async def find_semantic_dup(
-        self, embedding: list[float], company_norm: str, threshold: float = 0.90
+        self, embedding: list[float], company_norm: str, source: str, threshold: float = 0.90
     ) -> int | None:
         best: tuple[float, int] | None = None
         for pid, row in self.postings.items():
             if row["embedding"] is None or row["duplicate_of"] is not None:
+                continue
+            if row["source"] == source:
                 continue
             other = row["company_norm"]
             if not (other == company_norm or other in company_norm or company_norm in other):
@@ -121,6 +123,18 @@ class FakeStore:
 
     async def postings_with_status(self, *statuses: str) -> list[dict[str, Any]]:
         return [r for r in self.postings.values() if r["status"] in statuses]
+
+    async def unscored_new_postings(self, limit: int) -> list[dict[str, Any]]:
+        rows = [
+            r
+            for pid, r in sorted(self.postings.items())
+            if r["status"] == "new"
+            and r["duplicate_of"] is None
+            and pid not in self.scores
+            and self.scan_log.get((r["source"], r["external_id"]), {}).get("verdict")
+            in ("over_run_cap", "over_daily_cap")
+        ]
+        return rows[:limit]
 
     async def eligible_for_digest(self, now: datetime) -> list[dict[str, Any]]:
         out = []
