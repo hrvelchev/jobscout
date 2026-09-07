@@ -68,7 +68,7 @@ def parse_listing(html: str) -> list[dict]:
     tree = HTMLParser(html)
     cards = []
     for node in tree.css("div.job-list-item"):
-        job_id = node.attributes.get("data-job-id", "").strip()
+        job_id = (node.attributes.get("data-job-id") or "").strip()
         link = node.css_first("a.overlay-link")
         title = node.css_first("h6.job-title")
         company = node.css_first("span.company-name")
@@ -82,7 +82,7 @@ def parse_listing(html: str) -> list[dict]:
         cards.append(
             {
                 "external_id": job_id,
-                "url": link.attributes.get("href", ""),
+                "url": link.attributes.get("href") or "",
                 "title": title.text(strip=True),
                 "company": company.text(strip=True) if company else "",
                 "location": badges[0] if badges else None,

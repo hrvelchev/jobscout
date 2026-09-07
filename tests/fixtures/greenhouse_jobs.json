@@ -1,0 +1,27 @@
+{
+  "jobs": [
+    {
+      "id": 4957001,
+      "absolute_url": "https://job-boards.eu.greenhouse.io/examplecompany/jobs/4957001",
+      "title": "Data Analyst",
+      "updated_at": "2026-09-05T10:00:00Z",
+      "location": {"name": "Sofia, Bulgaria"},
+      "content": "&lt;div&gt;&lt;p&gt;Analyze &amp;amp; report. Python and SQL required.&lt;/p&gt;&lt;/div&gt;"
+    },
+    {
+      "id": 4957002,
+      "absolute_url": "https://job-boards.eu.greenhouse.io/examplecompany/jobs/4957002",
+      "title": "Senior Platform Engineer",
+      "updated_at": "not-a-date",
+      "location": {"name": "Remote"},
+      "content": "&lt;p&gt;Kubernetes all day.&lt;/p&gt;"
+    },
+    {
+      "id": "",
+      "absolute_url": "https://example.com/malformed",
+      "title": "Ghost",
+      "content": ""
+    }
+  ],
+  "meta": {"total": 3}
+}
