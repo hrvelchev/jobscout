@@ -35,6 +35,20 @@ from jobscout.watch import check_applied_postings
 log = structlog.get_logger()
 
 
+async def _retry_startup(step: str, action, *, attempts: int = 6) -> None:
+    """A freshly booted PC races Docker and the network: transient failures
+    on the first connects must retry, not kill the process."""
+    for attempt in range(1, attempts + 1):
+        try:
+            await action()
+            return
+        except Exception as exc:  # noqa: BLE001 - boot races are heterogeneous
+            if attempt == attempts:
+                raise
+            log.warning("startup_retry", step=step, attempt=attempt, error=str(exc))
+            await asyncio.sleep(10 * attempt)
+
+
 async def run() -> None:
     settings = load_settings()
     logging.basicConfig(level=settings.log_level)
@@ -43,7 +57,7 @@ async def run() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
     store = PostgresStore(settings.dsn)
-    await store.connect()
+    await _retry_startup("postgres", store.connect)
 
     from anthropic import AsyncAnthropic
 
@@ -156,15 +170,16 @@ async def run() -> None:
     )
 
     log.info("jobscout_started")
-    async with app:
+    await _retry_startup("telegram", app.initialize)
+    try:
         await app.start()
         await app.updater.start_polling()
-        try:
-            await asyncio.Event().wait()
-        finally:
-            await app.updater.stop()
-            await app.stop()
-            await store.close()
+        await asyncio.Event().wait()
+    finally:
+        await app.updater.stop()
+        await app.stop()
+        await app.shutdown()
+        await store.close()
 
 
 def main() -> None:
