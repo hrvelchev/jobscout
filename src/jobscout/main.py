@@ -111,7 +111,7 @@ async def run() -> None:
         if sheet is None:
             return None
         try:
-            return await sync_applications(store, sheet)
+            return await sync_applications(store, sheet, lane_cv_map)
         except Exception as exc:  # noqa: BLE001 - the tracker must never break the bot
             log.warning("sheet_sync_failed", error=str(exc))
             return None

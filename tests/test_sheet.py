@@ -57,7 +57,7 @@ async def seed_application(store, external_id: str, company: str, fit: int = 80)
 async def test_sync_appends_applications_with_bot_values(store):
     pid = await seed_application(store, "a1", "Fibank", fit=82)
     sheet = FakeSheet()
-    result = await sync_applications(store, sheet)
+    result = await sync_applications(store, sheet, {"ai": "cv_ai.pdf"})
     assert result == {"appended": 1, "updated": 0}
     assert sheet.headers == BOT_HEADERS + HUMAN_HEADERS
     row = sheet.rows[0]
@@ -65,6 +65,7 @@ async def test_sync_appends_applications_with_bot_values(store):
     assert row[2] == "Fibank"
     assert row[5] == "AI" and row[6] == "82"
     assert row[7] == "3000 - 5000 лв."
+    assert row[8] == "cv_ai.pdf"  # no draft row: CV derived from the lane map
     assert row[9] == "applied"
     assert row[1]  # applied date filled from the status event
 

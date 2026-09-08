@@ -54,23 +54,29 @@ class SheetPort(Protocol):
         ...
 
 
-def _bot_values(app: dict[str, Any]) -> list[str]:
+def _bot_values(app: dict[str, Any], lane_cv_map: dict[str, str]) -> list[str]:
     applied_at = app.get("applied_at")
+    lane = app.get("lane") or ""
+    # with drafting off there is no draft row carrying the CV variant, so the
+    # lane->CV config map fills the cell instead
+    cv = app.get("cv_variant") or lane_cv_map.get(lane.lower(), "")
     return [
         str(app["posting_id"]),
         applied_at.date().isoformat() if applied_at else "",
         app.get("company") or "",
         app.get("title") or "",
         app.get("url") or "",
-        (app.get("lane") or "").upper(),
+        lane.upper(),
         str(app["fit_score"]) if app.get("fit_score") is not None else "",
         app.get("salary_raw") or "",
-        app.get("cv_variant") or "",
+        cv,
         STATUS_LABELS.get(app.get("status"), app.get("status") or ""),
     ]
 
 
-async def sync_applications(store: Store, sheet: SheetPort) -> dict[str, int]:
+async def sync_applications(
+    store: Store, sheet: SheetPort, lane_cv_map: dict[str, str] | None = None
+) -> dict[str, int]:
     """Reconcile every applied/closed posting into the sheet. Idempotent."""
     apps = await store.applications()
     await sheet.ensure_headers(BOT_HEADERS + HUMAN_HEADERS)
@@ -80,7 +86,7 @@ async def sync_applications(store: Store, sheet: SheetPort) -> dict[str, int]:
     updated = 0
     to_append: list[list[str]] = []
     for app in apps:
-        values = _bot_values(app)
+        values = _bot_values(app, lane_cv_map or {})
         row = existing.get(values[0])
         if row is None:
             to_append.append(values)
