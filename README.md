@@ -10,8 +10,9 @@ you apply. The bot never applies for you.**
 
 Built as a working tool first and a demonstration second: LangGraph where
 branching is genuinely load-bearing, Postgres + pgvector for semantic dedupe,
-Docker for the runtime, CI running the full suite - 79 offline tests with the
-network disabled at socket level, plus 9 integration tests against real
+a Google Sheets application tracker with bot-owned and human-owned columns,
+Docker for the runtime, CI running the full suite - 91 offline tests with the
+network disabled at socket level, plus 11 integration tests against real
 pgvector.
 
 ## How it works
