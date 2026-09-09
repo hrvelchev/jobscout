@@ -20,7 +20,10 @@ Scoring rules:
   or "or equivalent experience", "none" if unmentioned.
 - lane: exactly one of ai | quant | data | energy | other.
 - red_flags: up to 5 short strings (relocation, unpaid, agency spam, stack
-  mismatch, visa-only...). Empty list if none.
+  mismatch, visa-only...). Empty list if none. Locations the candidate already
+  accepts are NEVER flags: when the profile accepts a city's on-site/hybrid
+  modes or country-remote, flag location ONLY if the posting demands presence
+  somewhere outside that.
 - cv_keywords: up to 10 skill/tech terms VERBATIM from the posting that the
   candidate should mirror in the application.
 - reason: one plain sentence.
