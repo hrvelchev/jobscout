@@ -11,7 +11,7 @@ you apply. The bot never applies for you.**
 Built as a working tool first and a demonstration second: LangGraph where
 branching is genuinely load-bearing, Postgres + pgvector for semantic dedupe,
 a Google Sheets application tracker with bot-owned and human-owned columns,
-Docker for the runtime, CI running the full suite - 91 offline tests with the
+Docker for the runtime, CI running the full suite - 93 offline tests with the
 network disabled at socket level, plus 11 integration tests against real
 pgvector.
 
@@ -46,7 +46,8 @@ pgvector.
                                           v
                          08:30 - digest (deterministic ranking:
                 fit + freshness + salary-posted + lane weight
-                       + watched-company - staleness)
+                + watched-company - staleness; optional
+                       fit-score floor, DIGEST_MIN_SCORE)
              +--------------------------------------------+
              |  Telegram card: score, why, red flags,     |
              |  CV keywords, which CV file, draft note    |

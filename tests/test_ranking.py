@@ -58,3 +58,17 @@ def test_missing_posted_at_falls_back_to_fetched_at():
     row["posted_at"] = None
     row["fetched_at"] = NOW - timedelta(days=1)
     assert value(row) == 70 + 8
+
+
+def test_min_score_filters_on_raw_fit_not_rank_value():
+    rows = [
+        make_row(fit=72, posted_days_ago=30),  # 62 after stale penalty, but fit >= 70
+        make_row(fit=65, posted_days_ago=1, lane="ai"),  # 78 with bonuses, fit < 70
+    ]
+    top = rank(rows, lane_weights=WEIGHTS, dream_companies=[], now=NOW, top_n=10, min_score=70)
+    assert [t["score"].fit_score for t in top] == [72]
+
+
+def test_min_score_zero_keeps_everything():
+    rows = [make_row(fit=10), make_row(fit=90)]
+    assert len(rank(rows, lane_weights=WEIGHTS, dream_companies=[], now=NOW, top_n=10)) == 2

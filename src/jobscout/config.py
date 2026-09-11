@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     devbg_pages: int = 1  # listing pages per category; >1 only for backfill
     draft_threshold: int = 70
     digest_top_n: int = 5
+    digest_min_score: int = 0  # postings below this fit score are never digested
     digest_hour: int = 8
     digest_minute: int = 30
     scout_hour: int = 7

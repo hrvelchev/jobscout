@@ -52,7 +52,11 @@ def rank(
     dream_companies: list[str],
     now: datetime,
     top_n: int,
+    min_score: int = 0,
 ) -> list[dict[str, Any]]:
+    # Floor applies to the raw fit score, so freshness/lane bonuses cannot lift
+    # a weak posting over it.
+    rows = [r for r in rows if r["score"].fit_score >= min_score]
     decorated = [
         {
             **row,

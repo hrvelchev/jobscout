@@ -142,6 +142,7 @@ async def run() -> None:
             dream_companies=dream_companies,
             now=now,
             top_n=settings.digest_top_n,
+            min_score=settings.digest_min_score,
         )
         extra = []
         if now.weekday() == 0:  # Monday
